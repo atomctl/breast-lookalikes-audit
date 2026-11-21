@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Second Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bench:#EEF1F5; --glass:#FFFFFF; --ink:#1B1F33; --ink2:#4E556B; --ink3:#7A8196; --rule:#D8DDE6;
+  --stain:#4B3F8F; --stain-soft:#E7E4F4; --forA:#009C95; --forB:#C9720A; --frost:#F7F8FA;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bench:#12141B; --glass:#1B1E28; --ink:#E9EBF2; --ink2:#B3B9C9; --ink3:#868DA1; --rule:#303543;
+  --stain:#A99BF0; --stain-soft:#2A2740; --forA:#149E97; --forB:#C8832A; --frost:#222633;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bench);color:var(--ink);font:15px/1.5 var(--body)}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--stain);outline-offset:2px}
+.top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--rule);background:var(--glass)}
+.top h1{font:600 1.35rem/1.1 var(--display);letter-spacing:.01em;margin:0}
+.top p{margin:0;color:var(--ink2);font-size:.9rem}
+.notice{margin-left:auto;font:500 .72rem var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--rule);border-radius:3px;padding:3px 8px}
+.bench{display:grid;grid-template-columns:232px minmax(0,1fr) 400px;min-height:calc(100vh - 58px)}
+/* the slide rack: each case is the frosted label end of a glass slide */
+.rack{border-right:1px solid var(--rule);background:var(--glass);padding:12px 10px;overflow-y:auto;max-height:calc(100vh - 58px);position:sticky;top:0}
+.rack h2,.card h2{font:600 .74rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:0 0 8px}
+.filters{display:flex;gap:4px;margin-bottom:10px}
+.filters button{flex:1;border:1px solid var(--rule);background:none;border-radius:4px;padding:4px 2px;font-size:.78rem;cursor:pointer;color:var(--ink2)}
+.filters button[aria-pressed=true]{background:var(--ink);color:var(--glass);border-color:var(--ink)}
+.slide{display:grid;grid-template-columns:64px 1fr;width:100%;text-align:left;border:1px solid var(--rule);border-radius:3px;background:none;margin-bottom:6px;padding:0;cursor:pointer;overflow:hidden}
+.slide .frost{background:var(--frost);border-right:1px solid var(--rule);padding:6px 7px;font:400 .62rem/1.3 var(--mono);color:var(--ink3);letter-spacing:.04em}
+.slide .frost b{display:block;font-weight:500;font-size:.86rem;color:var(--ink);letter-spacing:0}
+.slide .body{padding:6px 8px;font-size:.8rem;color:var(--ink2)}
+.slide .body b{display:block;color:var(--ink);font-weight:500}
+.slide[aria-current=true]{border-color:var(--stain);box-shadow:inset 3px 0 0 var(--stain)}
+.stage{padding:16px 20px;min-width:0}
+.tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:.88rem}
+.tools select{border:1px solid var(--rule);background:var(--glass);border-radius:4px;padding:4px 6px}
+.key{display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
+.key i{width:12px;height:12px;border-radius:2px;display:inline-block}
+.field{position:relative;background:var(--glass);border:1px solid var(--rule);border-radius:4px;overflow:hidden;line-height:0}
+.field img{width:100%;height:auto;display:block}
+.tile{position:absolute;border:1px solid rgba(255,255,255,.28)}
+.tile:hover{outline:2px solid var(--ink);outline-offset:-2px;z-index:2}
+.bar100{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.88);color:#1B1F33;font:500 .7rem var(--mono);padding:4px 6px 3px;border-radius:2px;line-height:1.2}
+.bar100 span{display:block;height:3px;background:#1B1F33;margin-top:3px}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--glass);font-size:.78rem;padding:5px 8px;border-radius:4px;z-index:9;max-width:240px;line-height:1.35;display:none}
+.caption{color:var(--ink3);font-size:.82rem;margin-top:8px;line-height:1.45}
+.side{border-left:1px solid var(--rule);background:var(--glass);padding:14px 16px;overflow-y:auto;max-height:calc(100vh - 58px);position:sticky;top:0}
+.card{padding:0 0 14px;margin:0 0 14px;border-bottom:1px solid var(--rule)}
+.card:last-child{border:0}
+.verdict{font:600 1.5rem/1.15 var(--display);margin:0 0 4px}
+.sub{color:var(--ink2);font-size:.86rem;margin:0}
+.meter{position:relative;height:8px;background:var(--stain-soft);border-radius:4px;margin:14px 0 20px}
+.meter .fill{position:absolute;left:0;top:0;bottom:0;background:var(--stain);border-radius:4px}
+.meter .cut{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--ink)}
+.meter .cut::after{content:attr(data-label);position:absolute;top:14px;left:50%;transform:translateX(-50%);font:500 .66rem var(--mono);color:var(--ink2);white-space:nowrap}
+.rows{display:grid;grid-template-columns:54px 1fr 46px 20px;gap:5px 8px;align-items:center;font-size:.84rem}
+.rows .t{font:500 .78rem var(--mono)}
+.rows .track{height:8px;border-radius:0 4px 4px 0}
+.rows .track b{display:block;height:100%;background:var(--stain);border-radius:0 4px 4px 0;min-width:1px}
+.rows .v{text-align:right;font:400 .78rem var(--mono);color:var(--ink2)}
+.rows .on{color:var(--ink);font-size:.8rem}
+.receipt{font:400 .82rem var(--mono);width:100%;border-collapse:collapse}
+.receipt td{padding:3px 0;vertical-align:middle}
+.receipt td.n{text-align:right;width:64px}
+.receipt td.g{width:120px;padding:3px 8px}
+.receipt tr.sum td{border-top:1px solid var(--ink);font-weight:500;padding-top:6px}
+.div{position:relative;height:8px;background:linear-gradient(var(--rule),var(--rule)) center/1px 100% no-repeat}
+.div b{position:absolute;top:0;bottom:0;border-radius:2px}
+.look{margin-bottom:10px}
+.look h3{font:500 .8rem var(--body);margin:0 0 5px;color:var(--ink2)}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.thumbs figure{margin:0}
+.thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:3px;border:1px solid var(--rule);display:block}
+.thumbs figcaption{font:400 .66rem var(--mono);color:var(--ink3);margin-top:2px}
+.struct{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:start;margin-bottom:10px}
+.struct .q{position:relative}
+.struct .q img{width:64px;height:64px;border-radius:3px;border:2px solid var(--ink);display:block}
+.struct .q span,.pin{position:absolute;font:500 .68rem var(--mono);background:var(--ink);color:var(--glass);border-radius:50%;width:18px;height:18px;display:grid;place-items:center;line-height:1}
+.struct .q span{left:-6px;top:-6px}
+.pin{transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--glass);z-index:3;pointer-events:none}
+.struct .n{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.struct .n img{width:100%;aspect-ratio:1;border-radius:3px;border:1px solid var(--rule);display:block}
+.struct .n figure{margin:0}
+.struct .n figcaption{font:500 .66rem var(--mono);color:var(--ink2);margin-top:1px}
+.struct p{grid-column:1/-1;margin:0 0 3px;font-size:.8rem;color:var(--ink2)}
+.pat{display:flex;justify-content:space-between;gap:8px;font-size:.84rem;padding:2px 0}
+.pat span:last-child{font:400 .78rem var(--mono);color:var(--ink2);white-space:nowrap}
+.reveal{border:1px solid var(--ink);background:none;border-radius:4px;padding:7px 12px;cursor:pointer;font-weight:500}
+.truth{font-size:.92rem;margin:0}
+.small{font-size:.8rem;color:var(--ink3);line-height:1.45;margin:6px 0 0}
+footer{padding:14px 20px;color:var(--ink3);font-size:.78rem;border-top:1px solid var(--rule);background:var(--glass)}
+@media (max-width:1100px){.bench{grid-template-columns:1fr}.rack,.side{position:static;max-height:none;border:0;border-bottom:1px solid var(--rule)}.rack .list{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}.slide{margin:0;flex:0 0 200px}}
+@media (prefers-reduced-motion:no-preference){.tile{transition:opacity .18s}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Second reader</h1>
+  <p>Breast biopsy regions the system has never seen. For each: what it decided, and the evidence it can show.</p>
+  <span class="notice">Research demo · not for diagnosis</span>
+</div>
+<div class="bench">
+  <nav class="rack" aria-label="Cases">
+    <h2>Cases</h2>
+    <div class="filters" role="group" aria-label="Show">
+      <button data-f="all" aria-pressed="true">All</button><button data-f="ask" aria-pressed="false">Asked</button><button data-f="act" aria-pressed="false">Answered</button>
+    </div>
+    <div class="list" id="list"></div>
+  </nav>
+  <main class="stage">
+    <div class="tools">
+      <label>Compare <select id="selA" aria-label="First type"></select></label>
+      <label>against <select id="selB" aria-label="Second type"></select></label>
+      <label><input type="checkbox" id="showMap" checked> Show tile evidence</label>
+      <span class="key"><i style="background:var(--forA)"></i><span id="keyA"></span></span>
+      <span class="key"><i style="background:var(--forB)"></i><span id="keyB"></span></span>
+    </div>
+    <div class="field" id="field"></div>
+    <p class="caption" id="mapNote"></p>
+  </main>
+  <aside class="side" id="side"></aside>
+</div>
+<footer id="foot"></footer>
+<div class="tip" id="tip"></div>
+<script src="data.js"></script>
+<script>
+const T = META.types, NAME = META.names, $ = s => document.querySelector(s);
+let cur = 0, filter = "all", revealed = false, pair = [0, 1];
+const f2 = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+const pct = v => (100 * v).toFixed(0) + "%";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function rack() {
+  $("#list").innerHTML = CASES.map((c, i) => (filter === "all" || c.decision === filter) ? `
+    <button class="slide" data-i="${i}" aria-current="${i === cur}">
+      <span class="frost">BRACS<b>${esc(c.slide.replace("BRACS_", ""))}</b>region ${esc(c.region)}</span>
+      <span class="body"><b>${c.decision === "act" ? "Answered alone" : "Asked a pathologist"}</b>${c.decision === "act" ? esc(T[c.top]) : c.list.map(k => T[k]).join(" · ") || "empty list"}</span>
+    </button>` : "").join("");
+}
+
+function defaultPair(c) {
+  const order = c.prob.map((p, k) => [p, k]).sort((a, b) => b[0] - a[0]).map(x => x[1]);
+  const onList = order.filter(k => c.list.includes(k));
+  return onList.length >= 2 && c.decision === "ask" ? [onList[0], onList[1]] : [order[0], order[1]];
+}
+
+function field() {
+  const c = CASES[cur], [a, b] = pair, show = $("#showMap").checked;
+  const v = c.tiles.map(t => t[2][a] - t[2][b]);
+  const mags = v.map(Math.abs).sort((x, y) => x - y), vmax = mags[Math.floor(mags.length * 0.95)] || 1e-9;
+  const s = 100 * c.tile / c.w, sh = 100 * c.tile / c.h;
+  $("#field").innerHTML = `<img src="${c.img}" alt="Tissue region ${esc(c.id)}, H&E stain">` + (show ? c.tiles.map((t, i) =>
+    `<div class="tile" data-i="${i}" style="left:${100 * t[0] / c.w}%;top:${100 * t[1] / c.h}%;width:${s}%;height:${sh}%;background:${v[i] >= 0 ? "var(--forA)" : "var(--forB)"};opacity:${Math.min(.72, .72 * Math.abs(v[i]) / vmax).toFixed(3)}"></div>`).join("") : "") +
+    (c.struct || []).map((q, n) => `<div class="pin" style="left:${100 * (c.tiles[q.tile][0] + c.tile / 2) / c.w}%;top:${100 * (c.tiles[q.tile][1] + c.tile / 2) / c.h}%">${n + 1}</div>`).join("") +
+    `<div class="bar100" style="width:${Math.max(40, 100 / c.um)}px">100 µm<span style="width:${100 / c.um * (document.querySelector("#field").clientWidth / c.w || 1)}px"></span></div>`;
+  $("#keyA").textContent = "speaks for " + T[a];
+  $("#keyB").textContent = "speaks for " + T[b];
+  const key = [T[Math.min(a, b)], T[Math.max(a, b)]].join(" vs "), auc = META.pairAuc[key];
+  $("#mapNote").innerHTML = `Each square is one 224-pixel tile at 20× (112 µm wide). Its colour says which of the two types it speaks for, and its strength how much. ` +
+    `The squares are the classifier's own arithmetic, not an estimate: they mark the tiles that drove the score, not where a lesion is. ` +
+    (auc ? `On patients the classifier never saw, a single tile's share separates ${esc(key.replace(" vs ", " regions from "))} regions with an AUC of ${auc.toFixed(2)} (0.5 would be no information).` : "");
+  bar();
+}
+function bar() {  // the scale bar depends on the rendered width
+  const c = CASES[cur], el = document.querySelector(".bar100 span"), w = document.querySelector("#field img");
+  if (el && w) { const px = 100 / c.um * (w.clientWidth / c.w); el.style.width = px + "px"; el.parentNode.style.width = Math.max(px + 12, 58) + "px"; }
+}
+
+function side() {
+  const c = CASES[cur], [a, b] = pair;
+  const tiles = c.tiles.reduce((s, t) => s + t[2][a] - t[2][b], 0), whole = c.whole[a] - c.whole[b], base = c.base[a] - c.base[b], total = tiles + whole + base;
+  const m = Math.max(Math.abs(tiles), Math.abs(whole), Math.abs(base), Math.abs(total), 1e-9);
+  const dv = v => `<div class="div"><b style="${v >= 0 ? "left:50%" : "right:50%"};width:${50 * Math.abs(v) / m}%;background:${v >= 0 ? "var(--forA)" : "var(--forB)"}"></b></div>`;
+  const asked = c.decision === "ask";
+  const rows = c.prob.map((p, k) => [p, k]).sort((x, y) => y[0] - x[0]).map(([p, k]) =>
+    `<span class="t" title="${esc(NAME[k])}">${T[k]}</span><span class="track"><b style="width:${100 * p}%"></b></span><span class="v">${pct(p)}</span><span class="on" title="${c.list.includes(k) && asked ? "On the short list" : ""}">${c.list.includes(k) && asked ? "✓" : ""}</span>`).join("");
+  const looks = Object.entries(c.look).map(([k, items]) => `<div class="look"><h3>Nearest confirmed ${esc(T[k])} cases</h3><div class="thumbs">${items.map(n =>
+    `<figure><img src="${n.img}" alt="Confirmed ${esc(T[k])} region" loading="lazy"><figcaption>${esc(n.id)}</figcaption></figure>`).join("")}</div></div>`).join("");
+  const hit = asked ? c.list.includes(c.label) : c.top === c.label;
+  $("#side").innerHTML = `
+  <section class="card"><h2>Decision</h2>
+    <p class="verdict">${asked ? "Asks a pathologist" : "Answers alone: " + esc(T[c.top])}</p>
+    <p class="sub">${asked ? (c.list.length ? "One of: " + c.list.map(k => esc(NAME[k])).join(", ") + "." : "No type fits well enough. The list is empty.") : esc(NAME[c.top]) + "."}</p>
+    <div class="meter" role="img" aria-label="Confidence ${c.context.toFixed(2)}, cut-off ${META.cutOff.toFixed(2)}"><div class="fill" style="width:${100 * c.context}%"></div><div class="cut" style="left:${100 * META.cutOff}%" data-label="answers alone from ${META.cutOff.toFixed(2)}"></div></div>
+    <p class="small">Confidence ${c.context.toFixed(2)}: this region's top probability averaged with the patient's other regions. ${esc(META.record)}</p>
+  </section>
+  <section class="card"><h2>The seven types</h2><div class="rows">${rows}</div>
+    ${asked ? `<p class="small">✓ marks the short list. Aim: the agreed type is on it at least 9 times in 10.</p>` : ""}</section>
+  <section class="card"><h2>Why ${esc(T[a])} and not ${esc(T[b])}</h2>
+    <table class="receipt"><tbody>
+      <tr><td>Tiles (the squares)</td><td class="g">${dv(tiles)}</td><td class="n">${f2(tiles)}</td></tr>
+      <tr><td>Whole-region view</td><td class="g">${dv(whole)}</td><td class="n">${f2(whole)}</td></tr>
+      <tr><td>Starting point</td><td class="g">${dv(base)}</td><td class="n">${f2(base)}</td></tr>
+      <tr class="sum"><td>Leans to ${esc(T[total >= 0 ? a : b])}</td><td class="g">${dv(total)}</td><td class="n">${f2(total)}</td></tr>
+    </tbody></table>
+    <p class="small">The three lines add up to the classifier's score for ${esc(T[a])} minus its score for ${esc(T[b])}, exactly. The whole-region view has no place on the map.</p>
+  </section>
+  ${c.struct && c.struct.length ? `<section class="card"><h2>Structures like these</h2>${c.struct.map((q, n) => `<div class="struct"><p>Tile ${n + 1}: the strongest tile for ${esc(T[q.for])}</p><div class="q"><img src="${q.img}" alt="Tile ${n + 1} of this region"><span>${n + 1}</span></div><div class="n">${q.near.map(x =>
+    `<figure><img src="${x.img}" alt="Tile from a confirmed ${esc(T[x.label])} region" loading="lazy"><figcaption>${esc(T[x.label])}</figcaption></figure>`).join("")}</div></div>`).join("")}<p class="small">${esc(META.tileNote)}</p></section>` : ""}
+  ${looks ? `<section class="card"><h2>Whole regions the classifier scores alike</h2>${looks}<p class="small">${esc(META.lookNote)}</p></section>` : ""}
+  ${c.patterns && c.patterns.length ? `<section class="card"><h2>Named patterns</h2>${c.patterns.map(p => `<div class="pat"><span>${esc(p.name)}</span><span>higher than ${p.pct}% of regions</span></div>`).join("")}<p class="small">${esc(META.patternNote)}</p></section>` : ""}
+  <section class="card"><h2>The agreed label</h2>
+    ${revealed ? `<p class="truth"><b>${esc(T[c.label])}</b> · ${esc(NAME[c.label])}. ${asked ? (hit ? "It is on the short list." : "It is <b>not</b> on the short list.") : (hit ? "The answer was right." : "The answer was <b>wrong</b>.")}</p><p class="small">Agreed by three pathologists (BRACS). An agreement, not a certainty.</p>`
+               : `<button class="reveal" id="reveal">Reveal the agreed label</button><p class="small">Decide for yourself first.</p>`}
+  </section>`;
+  const r = $("#reveal"); if (r) r.onclick = () => { revealed = true; side(); };
+}
+
+function fillSelects() {
+  for (const [id, v] of [["#selA", pair[0]], ["#selB", pair[1]]])
+    $(id).innerHTML = T.map((t, k) => `<option value="${k}" ${k === v ? "selected" : ""}>${t} · ${esc(NAME[k])}</option>`).join("");
+}
+function open(i) { cur = i; revealed = false; pair = defaultPair(CASES[i]); fillSelects(); rack(); field(); side(); }
+
+$("#list").onclick = e => { const b = e.target.closest(".slide"); if (b) open(+b.dataset.i); };
+document.querySelectorAll(".filters button").forEach(b => b.onclick = () => { filter = b.dataset.f; document.querySelectorAll(".filters button").forEach(x => x.setAttribute("aria-pressed", x === b)); rack(); });
+for (const id of ["#selA", "#selB"]) $(id).onchange = () => { const a = +$("#selA").value, b = +$("#selB").value; if (a !== b) { pair = [a, b]; field(); side(); } else fillSelects(); };
+$("#showMap").onchange = field;
+$("#field").onmousemove = e => {
+  const t = e.target.closest(".tile"), tip = $("#tip");
+  if (!t) { tip.style.display = "none"; return; }
+  const c = CASES[cur], [a, b] = pair, v = c.tiles[+t.dataset.i][2][a] - c.tiles[+t.dataset.i][2][b];
+  tip.textContent = `This tile: ${f2(v)} toward ${T[v >= 0 ? a : b]}`;
+  tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 250) + "px"; tip.style.top = e.clientY + 14 + "px";
+};
+$("#field").onmouseleave = () => $("#tip").style.display = "none";
+document.onkeydown = e => { if (e.target.tagName === "SELECT") return; const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0; if (d) { e.preventDefault(); open((cur + d + CASES.length) % CASES.length); document.querySelector('.slide[aria-current="true"]')?.scrollIntoView({block: "nearest"}); } };
+addEventListener("resize", bar);
+$("#foot").textContent = META.credits;
+open(Math.min(CASES.length - 1, parseInt(location.hash.slice(1)) || 0));  // index.html#12 opens the 13th case
+$("#field").addEventListener("load", bar, true);
+</script>
+</body>
+</html>

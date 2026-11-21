@@ -1,0 +1,60 @@
+# Pathology look-alikes
+
+For the benign breast duct look-alikes UDH and ADH (usual and atypical ductal hyperplasia), disputed labels set the ceiling on what we can verify. The public datasets we audited gave no independent answer for the disputed cases, and every route we tried without new expert labels stopped at a check set before its final result.
+
+**Not a diagnostic tool.** This is a solo research and portfolio project.
+
+## What was built
+
+A linear classifier used frozen UNI features from BRACS H&E regions. It combined an average of tile embeddings with a whole-region embedding. The official region split kept each patient in a single partition. An “act or ask” rule used confidence across a patient’s regions to choose between a single prediction and a shortlist for review.
+
+The gray-zone experiments covered UDH, flat epithelial atypia (FEA), ADH, and ductal carcinoma in situ (DCIS). They tested lesion extent, tile arrangement, and duct and nuclear measurements. A separate H&E model used basal-keratin transcripts measured by Xenium as a proxy for immunostaining. Language models labelled HISTAI reports for immunostains performed or recommended.
+
+## Key results
+
+**The classifier plateaued.** In patient-grouped cross-validation, the frozen-feature classifier reached gray-zone macro F1 **0.705** and ADH F1 **0.55**. On the validation patients, ADH F1 was **0.31**. Pruning or softening suspect labels did not help. Fine-tuning UNI with a region-level loss reached **0.692** macro F1 and **0.554** ADH F1 across the same folds, with no clear gain. In a separate published BRACS read, breast pathologists reproduced the ADH label with an F1 near **0.38**. That study used a different BRACS test release. [Ledger entries 56–57](LEDGER.md) · [Pati et al., HACT-Net](https://arxiv.org/abs/2102.11057)
+
+**Errors followed slide origin.** In the out-of-fold UDH–ADH comparison, the classifier ranked UDH higher for **79** regions labelled ADH and ranked ADH higher for **67** regions labelled UDH. These counts compare the two scores directly. ADH ranked below UDH in 43 of 84 regions from ADH-labelled slides and 36 of 303 from slides labelled DCIS or invasive carcinoma. UDH ranked below ADH in 9 of 131 regions from UDH-labelled slides, 14 of 95 from ADH slides, 25 of 80 from DCIS slides, 18 of 75 from invasive carcinoma slides, and 1 of 8 from FEA slides. In the same training cohort, ADH recall was 25% on ADH-labelled slides and 66% beside carcinoma. The validation cohort did not confirm that recall gap. [Ledger entries 47 and 53](LEDGER.md)
+
+**The gene-taught model picked up a duct-level signal and failed on the disputed cases.** On BRACS training-cohort regions, the model ranked the median predicted stain scores from highest to lowest as **UDH → ADH → FEA → DCIS**. ADH and FEA were close. UDH versus ADH AUC was **0.792**, fell to **0.60** on validation, and was **0.442** on the 146 pairwise errors above. Adding the score to the classifier gave no gain. The cell-centred retry stopped at **0.644** AUC in a held-out Xenium patient, below the **0.65** stop threshold. The duct score was never validated against matched immunostains. [Ledger entries 48–52](LEDGER.md)
+
+## The wall
+
+These routes needed no new human annotations. Each stopped before it could help resolve the disputed cases.
+
+| Route | Why it stopped |
+| --- | --- |
+| Automated nuclear measurements (46) | **0 of 4** prespecified features met the criterion. AUC on the classifier’s pairwise errors was **0.49**. |
+| HISTAI stain-order study gate (55) | The numerical checks passed. Visual review found **15 of 50** highest-doubt windows contained no ducts. The gate failed and the HISTAI endpoint was never scored. |
+| Match HISTAI H&E to immunostains (58) | **At most 2 of 12** cases had a possible outline match, against a bar of **6**. Block IDs were unavailable. |
+| BaSISS mutation maps (59) | **0** ADH regions. The probes targeted tumour mutations, and the checked release offered no aligned H&E. |
+| Link HISTAI cases to later specimens (60) | **0** linkable pairs against a bar of **30**. Patient IDs and usable specimen links were absent. |
+
+## How the work was run
+
+The ledger puts each experiment’s rule before its result. Some analyses were exploratory, and some rules were set after an initial look. Entry 58 set its cutoff after previews of 2 of the 12 cases. The visual gate in entry 55 had no numerical cutoff. Many experiments reused the same BRACS training patients. Claude, GPT, and DeepSeek helped design and review the work. No pathologist checked any labels as part of this project.
+
+## Limits
+
+These findings apply to the methods and datasets tested here. Whether H&E can separate UDH from ADH under a different study design remains open. The slide pattern could reflect tissue differences or how the original labels were assigned. BACH groups both lesions under benign, so its external check cannot test this distinction.
+
+## What would break the wall
+
+A hospital cohort could link the original H&E biopsy, immunostains from the same block, and the corresponding excision findings or later follow-up. Matching the same ducts across sections would let us check the stain score on cases where the classifier and the label disagree. Linking follow-up to the original case would let us test whether those disagreements track what was found later.
+
+## Data and licences
+
+Dataset files are excluded. Download the datasets separately under their own terms.
+
+- BRACS for non-commercial research. [Data card](steps/06-data-card.md)
+- BACH under CC BY-NC-ND 4.0. [Dataset page](https://iciar2018-challenge.grand-challenge.org/Dataset/)
+- HISTAI under CC BY-NC 4.0, with gated access. [HISTAI-breast](https://huggingface.co/datasets/histai/HISTAI-breast) · [HISTAI-mixed](https://huggingface.co/datasets/histai/HISTAI-mixed)
+- 10x Xenium under CC BY. [Dataset catalogue](https://www.10xgenomics.com/datasets)
+
+Code is licensed under [MIT](LICENSE).
+
+## Repo map
+
+- [LEDGER.md](LEDGER.md) records experiment rules, results, and decisions.
+- [steps/](steps/) documents methods and intermediate findings.
+- [tools/](tools/) contains the experiment scripts.

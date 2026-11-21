@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breast region reading study</title>
+<style>
+  :root { --bg:#14171a; --panel:#1d2226; --line:#30373d; --ink:#e8ecef; --muted:#97a3ad; --accent:#3fb6ad; --warn:#d9953a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:16px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header strong { font-weight:600; } header span { color:var(--muted); }
+  #bar { flex:1; height:6px; background:var(--line); border-radius:3px; overflow:hidden; } #bar i { display:block; height:100%; background:var(--accent); width:0; }
+  main { flex:1; display:flex; min-height:0; }
+  #view { flex:1; overflow:auto; background:#0c0e10; display:flex; } #view img { margin:auto; display:block; image-rendering:auto; }
+  aside { width:340px; border-left:1px solid var(--line); background:var(--panel); padding:16px; overflow:auto; display:flex; flex-direction:column; gap:14px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 6px; font-weight:600; }
+  .types { display:grid; gap:6px; } button { font:inherit; color:var(--ink); background:#262d32; border:1px solid var(--line); border-radius:6px; padding:9px 10px; text-align:left; cursor:pointer; }
+  button:hover { border-color:var(--muted); } button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  button.on { background:#1f4a47; border-color:var(--accent); } button kbd { float:right; color:var(--muted); font:12px ui-monospace, monospace; }
+  .row { display:flex; gap:6px; } .row button { flex:1; text-align:center; }
+  #next { background:var(--accent); color:#06201e; border:0; font-weight:600; text-align:center; } #next:disabled { background:#2b3338; color:var(--muted); cursor:not-allowed; }
+  #ai { border:1px solid var(--warn); border-radius:8px; padding:12px; } #ai p { margin:4px 0; } #ai .small { color:var(--muted); font-size:13px; }
+  #start, #done { max-width:640px; margin:8vh auto; padding:0 20px; } input { font:inherit; padding:9px 10px; border-radius:6px; border:1px solid var(--line); background:#262d32; color:var(--ink); width:220px; }
+  .note { color:var(--muted); font-size:13px; } label.z { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; } input[type=range] { width:auto; flex:1; padding:0; }
+  @media (max-width:800px) { main { flex-direction:column; } aside { width:auto; border-left:0; border-top:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<div id="start">
+  <h1>Breast region reading study</h1>
+  <p>You will see cut-out regions of breast biopsies, stained with H&amp;E, scanned at 40× and shown at 20×. For each region, choose the one type that fits best and say how sure you are.</p>
+  <p><strong>Part 1:</strong> every region without any help. <strong>Part 2:</strong> the same regions in a new order, with the answer of a computer system shown next to the image. You may agree with it or not.</p>
+  <p class="note">Research only: nothing here is a diagnosis and no patient can be identified. Your answers stay in this browser until you save them to a file at the end. You can stop and continue later on the same computer.</p>
+  <p><input id="code" placeholder="Reader code, e.g. R1" autocomplete="off"> <button id="go">Start or continue</button></p>
+</div>
+<header hidden><strong id="part"></strong><span id="count"></span><div id="bar"><i></i></div><button id="save">Save answers to a file</button></header>
+<main hidden>
+  <div id="view"><img id="img" alt="Tissue region"></div>
+  <aside>
+    <div id="ai" hidden><h2>Computer system</h2><div id="aitext"></div></div>
+    <div><h2>Type</h2><div class="types" id="types"></div></div>
+    <div><h2>How sure are you?</h2><div class="row" id="sure"></div></div>
+    <label class="z">Zoom <input type="range" id="zoom" min="10" max="200" value="100"> <span id="zv">fit</span></label>
+    <p class="note" id="scale"></p>
+    <button id="next" disabled>Next region</button>
+    <p class="note">Keys: 1–7 choose the type, Enter goes on.</p>
+  </aside>
+</main>
+<div id="done" hidden><h1>Finished. Thank you.</h1><p>Please save your answers and send the file to the organiser.</p><p><button id="save2">Save answers to a file</button></p></div>
+<script src="cases.js"></script>
+<script>
+const TYPES = [["N","Normal"],["PB","Benign changes (pathological benign)"],["UDH","Usual ductal hyperplasia"],["FEA","Flat epithelial atypia"],["ADH","Atypical ductal hyperplasia"],["DCIS","Ductal carcinoma in situ"],["IC","Invasive carcinoma"]];
+const NAME = Object.fromEntries(TYPES), SURE = ["Unsure","Fairly sure","Sure"], $ = id => document.getElementById(id);
+let state, cur, shownAt, fit = 1;
+function shuffled(seed) { let s = [...seed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) || 1; const a = CASES.map(c => c.id);
+  for (let i = a.length - 1; i > 0; i--) { s = (s * 1664525 + 1013904223) >>> 0; const j = s % (i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function store() { try { localStorage.setItem("reader-study-" + state.reader, JSON.stringify(state)); } catch (e) {} }
+function load(code) { try { const s = localStorage.getItem("reader-study-" + code); if (s) return JSON.parse(s); } catch (e) {} return null; }
+function begin() { const code = $("code").value.trim(); if (!code) { $("code").focus(); return; }
+  state = load(code) || { reader: code, started: new Date().toISOString(), order: [shuffled(code + "/1"), shuffled(code + "/2")], answers: [] };
+  $("start").hidden = true; document.querySelector("header").hidden = false; document.querySelector("main").hidden = false; show(); }
+function position() { const n = state.answers.length, total = CASES.length; return { part: n < total ? 1 : 2, index: n % total, n, total }; }
+function show() { const p = position(); if (p.n >= 2 * p.total) return finish();
+  const c = CASES.find(x => x.id === state.order[p.part - 1][p.index]); cur = { id: c.id, part: p.part, type: null, sure: null };
+  $("part").textContent = p.part === 1 ? "Part 1: without help" : "Part 2: with the computer system"; $("count").textContent = `Region ${p.index + 1} of ${p.total}`;
+  document.querySelector("#bar i").style.width = (100 * p.n / (2 * p.total)) + "%";
+  const img = $("img"); img.onload = () => { const v = $("view"); fit = Math.min(v.clientWidth / c.w, v.clientHeight / c.h, 1); $("zoom").value = 100; zoom(); shownAt = Date.now(); }; img.src = "img/" + c.id + ".jpg"; img.dataset.w = c.w;
+  $("scale").textContent = `The whole region is ${c.width_mm} mm wide.`;
+  $("ai").hidden = p.part === 1;
+  if (p.part === 2) { const a = c.ai, probs = Object.entries(a.prob).map(([t, v]) => `${t} ${Math.round(v * 100)}%`).join(", ");
+    $("aitext").innerHTML = a.alone ? `<p>The system <strong>answers alone: ${NAME[a.answer]}</strong>.</p><p class="small">It answers alone only when it is confident; in our checks between 1 in 25 and 1 in 10 such answers were wrong.</p>`
+      : `<p>The system <strong>does not answer alone</strong>. Its short list, most likely first:</p><p><strong>${a.list.map(t => NAME[t]).join("; ")}</strong></p><p class="small">In our checks the short list held the agreed type in 8 to 9 of 10 cases.</p>`;
+    $("aitext").innerHTML += `<p class="small">Its three highest probabilities: ${probs}.</p>`; }
+  draw(); }
+function draw() { $("types").innerHTML = ""; TYPES.forEach(([t, name], i) => { const b = document.createElement("button"); b.innerHTML = `${name} <kbd>${i + 1}</kbd>`; b.className = cur.type === t ? "on" : "";
+    b.onclick = () => { cur.type = t; draw(); }; $("types").appendChild(b); });
+  $("sure").innerHTML = ""; SURE.forEach((s, i) => { const b = document.createElement("button"); b.textContent = s; b.className = cur.sure === i ? "on" : ""; b.onclick = () => { cur.sure = i; draw(); }; $("sure").appendChild(b); });
+  $("next").disabled = cur.type === null || cur.sure === null; }
+function zoom() { const z = $("zoom").value / 100, img = $("img"); img.style.width = Math.round(img.dataset.w * fit * z) + "px"; $("zv").textContent = z === 1 ? "fit" : Math.round(fit * z * 100) + "% of 20×"; }
+function next() { if ($("next").disabled) return; state.answers.push({ case: cur.id, part: cur.part, type: cur.type, sure: cur.sure, seconds: Math.round((Date.now() - shownAt) / 1000) }); store(); show(); }
+function finish() { document.querySelector("main").hidden = true; document.querySelector("header").hidden = true; $("done").hidden = false; }
+function save() { const blob = new Blob([JSON.stringify({ ...state, saved: new Date().toISOString() }, null, 1)], { type: "application/json" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `reader-${state.reader}.json`; a.click(); }
+$("go").onclick = begin; $("next").onclick = next; $("save").onclick = save; $("save2").onclick = save; $("zoom").oninput = zoom;
+$("code").addEventListener("keydown", e => { if (e.key === "Enter") begin(); });
+document.addEventListener("keydown", e => { if (!state || document.querySelector("main").hidden) return; const k = parseInt(e.key, 10);
+  if (k >= 1 && k <= 7) { cur.type = TYPES[k - 1][0]; draw(); } else if (e.key === "Enter") next(); });
+</script>
+</body>
+</html>
