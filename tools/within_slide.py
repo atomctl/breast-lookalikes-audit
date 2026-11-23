@@ -558,5 +558,122 @@ def shapes_test():
     print(json.dumps(res, indent=2))
 
 
+def centred():
+    """Ledger entry 72: retrain the engine on slide-centred features; compare close and far pairs."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    from short_lists import engine_features
+    from train_classifier import classifier
+    from sklearn.metrics import f1_score
+    with open(ROOT / "data/regions.csv") as f:
+        allrows = list(csv.DictReader(f))
+    tr = [r for r in allrows if r["split"] == "train"]; va = [r for r in allrows if r["split"] == "val"]
+    def centre(x, rows):
+        sl = np.array([r["slide"] for r in rows]); out = x.copy()
+        for s_ in np.unique(sl):
+            m = sl == s_; out[m] = x[m] - x[m].mean(0)
+        return out
+    xtr, xva = centre(engine_features("train"), tr), centre(engine_features("val"), va)
+    y = np.array([int(r["label"]) for r in tr]); pat_tr = np.array([int(r["patient"]) for r in tr])
+    cache = OUT / "centred_prob.npz"
+    if cache.exists():
+        z = np.load(cache); oof, vprob = z["oof"], z["val"]
+    else:
+        oof = np.zeros((len(y), 7))
+        for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=0).split(y, y, pat_tr):
+            oof[b] = classifier(0.001).fit(xtr[a], y[a]).predict_proba(xtr[b])
+        vprob = classifier(0.001).fit(xtr, y).predict_proba(xva)
+        np.savez(cache, oof=oof, val=vprob)
+    old = np.vstack([np.load(ROOT / "outputs/m2/oof_prob_engine.npy"), np.load(ROOT / "outputs/m2/val_prob_engine.npy")])
+    new = np.vstack([oof, vprob])
+    rows = tr + va; fi = {r["file"]: i for i, r in enumerate(rows)}; pt = {r["slide"]: int(r["patient"]) for r in rows}
+    so = old[:, ADH] / (old[:, ADH] + old[:, UDH]); sn = new[:, ADH] / (new[:, ADH] + new[:, UDH])
+    P = []
+    for s_, regs in json.loads((OUT / "positions.json").read_text()).items():
+        for a in [x for x in regs if x["label"] == "ADH"]:
+            for u in [x for x in regs if x["label"] == "UDH"]:
+                P.append((pt[s_], gap_mm(a["box"], u["box"]), fi[a["file"]], fi[u["file"]]))
+    P = np.array(P); pat, gap, ia, iu = P[:, 0].astype(int), P[:, 1], P[:, 2].astype(int), P[:, 3].astype(int)
+    rt = lambda sc: np.where(sc[ia] > sc[iu], 1.0, np.where(sc[ia] == sc[iu], 0.5, 0.0))
+    ro, rn = rt(so), rt(sn)
+    def rep(mask):
+        pp = np.unique(pat[mask]); idx = {p: np.where(mask & (pat == p))[0] for p in pp}
+        per = np.array([rn[idx[p]].mean() - ro[idx[p]].mean() for p in pp])
+        r2 = np.random.default_rng(SEED); draws = []
+        for _ in range(RESAMPLES):
+            ch = r2.choice(len(pp), len(pp)); ii = np.concatenate([idx[pp[c]] for c in ch])
+            draws.append((per[ch].mean(), rn[ii].mean(), ro[ii].mean()))
+        q = lambda j: [round(float(np.percentile([d[j] for d in draws], v)), 4) for v in (2.5, 97.5)]
+        return {"pairs": int(mask.sum()), "patients": len(pp), "paired_centred_minus_original": round(float(per.mean()), 4), "paired_range95": q(0),
+                "centred": round(float(rn[mask].mean()), 4), "centred_range95": q(1), "original": round(float(ro[mask].mean()), 4), "original_range95": q(2)}
+    otr = old[:len(tr)]
+    result = {"entry": 72, "primary_close_1": rep(gap <= 1), "far": rep(gap > 3),
+              "seven_type_oof": {"weighted_f1_centred": round(float(f1_score(y, oof.argmax(1), average="weighted")), 4),
+                                 "weighted_f1_original": round(float(f1_score(y, otr.argmax(1), average="weighted")), 4),
+                                 "adh_f1_centred": round(float(f1_score(y == ADH, oof.argmax(1) == ADH)), 4),
+                                 "adh_f1_original": round(float(f1_score(y == ADH, otr.argmax(1) == ADH)), 4)}}
+    lo, hi = result["primary_close_1"]["paired_range95"]
+    result["reading"] = "range above 0: centring helps touching pairs" if lo > 0 else "range below 0: centring hurts" if hi < 0 else "range contains 0: no sign it helps"
+    (OUT / "centred.json").write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2))
+
+
+def bimodal():
+    """Ledger entry 73: one or two nucleus populations per region, label-free, on close and far pairs."""
+    from sklearn.mixture import GaussianMixture
+    key = lambda f: f[:-4].replace("/", "__")
+    def B(f):
+        path = ROOT / "data/features/duct_cells" / (key(f) + ".npz")
+        if not path.exists():
+            return None
+        n = np.load(path)["nuclei"]
+        if len(n) < 30:
+            return None
+        x = np.column_stack([np.log(n[:, 2]), n[:, 3], n[:, 4], n[:, 6]]).astype(float)
+        x = (x - x.mean(0)) / (x.std(0) + 1e-9)
+        b1 = GaussianMixture(1, covariance_type="full", random_state=0).fit(x).bic(x)
+        b2 = GaussianMixture(2, covariance_type="full", random_state=0, n_init=3).fit(x).bic(x)
+        return (b1 - b2) / len(x)
+    with open(ROOT / "data/regions.csv") as f:
+        allrows = [r for r in csv.DictReader(f) if r["split"] in ("train", "val")]
+    rows = [r for r in allrows if r["split"] == "train"] + [r for r in allrows if r["split"] == "val"]
+    prob = np.vstack([np.load(ROOT / "outputs/m2/oof_prob_engine.npy"), np.load(ROOT / "outputs/m2/val_prob_engine.npy")])
+    eng = {r["file"]: float(prob[i, ADH] / (prob[i, ADH] + prob[i, UDH])) for i, r in enumerate(rows)}
+    pt = {r["slide"]: int(r["patient"]) for r in rows}
+    cacheB = {}
+    T = []
+    for s_, regs in json.loads((OUT / "positions.json").read_text()).items():
+        for a in [x for x in regs if x["label"] == "ADH"]:
+            for u in [x for x in regs if x["label"] == "UDH"]:
+                g = gap_mm(a["box"], u["box"]); band = 0 if g <= 1 else 1 if g > 3 else -1
+                if band < 0:
+                    continue
+                for f_ in (a["file"], u["file"]):
+                    if f_ not in cacheB:
+                        cacheB[f_] = B(f_)
+                ba, bu = cacheB[a["file"]], cacheB[u["file"]]
+                if ba is None or bu is None:
+                    continue
+                d = eng[a["file"]] - eng[u["file"]]
+                T.append((pt[s_], band, 1.0 if bu > ba else 0.5 if bu == ba else 0.0, 1.0 if d > 0 else 0.5 if d == 0 else 0.0))
+    T = np.array(T)
+    def rep(mask):
+        pp = np.unique(T[mask, 0]); idx = {p: np.where(mask & (T[:, 0] == p))[0] for p in pp}
+        per = np.array([T[idx[p], 2].mean() - T[idx[p], 3].mean() for p in pp])
+        r2 = np.random.default_rng(SEED); draws = []
+        for _ in range(RESAMPLES):
+            ch = r2.choice(len(pp), len(pp)); ii = np.concatenate([idx[pp[c]] for c in ch])
+            draws.append((T[ii, 2].mean(), T[ii, 3].mean(), per[ch].mean()))
+        q = lambda j: [round(float(np.percentile([d[j] for d in draws], v)), 4) for v in (2.5, 97.5)]
+        return {"pairs": int(mask.sum()), "patients": len(pp), "bimodal": round(float(T[mask, 2].mean()), 4), "bimodal_range95": q(0),
+                "engine": round(float(T[mask, 3].mean()), 4), "engine_range95": q(1), "paired_bimodal_minus_engine": round(float(per.mean()), 4), "paired_range95": q(2)}
+    vals = np.array([v for v in cacheB.values() if v is not None])
+    result = {"entry": 73, "primary_close": rep(T[:, 1] == 0), "far": rep(T[:, 1] == 1),
+              "B_summary": {"regions": len(vals), "median": round(float(np.median(vals)), 4), "share_two_groups_preferred": round(float((vals > 0).mean()), 4)}}
+    lo, hi = result["primary_close"]["bimodal_range95"]
+    result["reading"] = ("orients touching pairs" if lo > 0.5 else "points the wrong way" if hi < 0.5 else "range contains 0.5: does not orient touching pairs")
+    (OUT / "bimodal.json").write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2))
+
+
 if __name__ == "__main__":
-    shapes_test() if "shapes" in sys.argv else close_head() if ("close" in sys.argv or "allpairs" in sys.argv) else relative() if "relative" in sys.argv else size() if "size" in sys.argv else nearness() if "nearness" in sys.argv else bins() if "bins" in sys.argv else test_look() if "test" in sys.argv else distance() if "distance" in sys.argv else main()
+    bimodal() if "bimodal" in sys.argv else centred() if "centred" in sys.argv else shapes_test() if "shapes" in sys.argv else close_head() if ("close" in sys.argv or "allpairs" in sys.argv) else relative() if "relative" in sys.argv else size() if "size" in sys.argv else nearness() if "nearness" in sys.argv else bins() if "bins" in sys.argv else test_look() if "test" in sys.argv else distance() if "distance" in sys.argv else main()

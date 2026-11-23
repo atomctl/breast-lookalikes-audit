@@ -1,6 +1,6 @@
 # Pathology look-alikes
 
-For the benign breast duct look-alikes UDH and ADH (usual and atypical ductal hyperplasia), disputed labels set the ceiling on what we can verify. The public datasets we audited gave no independent answer for the disputed cases, and every route we tried without new expert labels stopped at a check set before its final result.
+For the benign breast duct look-alikes UDH and ADH (usual and atypical ductal hyperplasia), three numbers sum up the result. On one slide, a frozen-feature model ranks ADH above UDH in **78%** of region pairs more than 3 mm apart, but in only **57%** of pairs within 0.5 mm, close to chance. Experts disagree here too: breast pathologists re-reading BRACS reproduced the ADH label with an F1 near **0.38** (a different measure from the pair rankings). Nearby regions also look alike in general, so the close-pair drop may reflect nearness rather than the UDH–ADH border, and nothing tried on H&E alone (75 ledger entries, most with the rule written before the result) separated touching pairs reliably.
 
 **Not a diagnostic tool.** This is a solo research and portfolio project.
 
