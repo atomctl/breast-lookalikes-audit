@@ -20,6 +20,8 @@ SRC = ROOT / "data/bracs/BRACS_RoI/latest_version"
 MAPS = ROOT / "data/features/duct_maps"
 CELLS_DIR = ROOT / "data/features/duct_cells"
 OUT = ROOT / "outputs/ducts"
+sys.path.insert(0, str(ROOT / "tools"))  # -I leaves the script's folder off the path
+import folds as foldlib  # the patient folds, frozen in outputs/folds.json
 CELLS = [0, 3, 7, 8, 9]   # duct-cell kinds of entry 41
 PATCH = 32                # one map patch in 40x pixels (16 pixels at 20x)
 WIN = 16                  # window side in patches: 512 pixels at 40x, 128 micrometres
@@ -133,13 +135,12 @@ def auc_range(y, s, draws):
 def pair_score(x, y, patient, fold):
     """Out-of-fold score for 'ADH, not UDH', the strength C chosen inside each fold by AUC."""
     from sklearn.metrics import roc_auc_score
-    from sklearn.model_selection import StratifiedGroupKFold
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
     from train_classifier import STRENGTHS, classifier
     score = np.zeros(len(y))
     for f in np.unique(fold):
         a, b = np.flatnonzero(fold != f), np.flatnonzero(fold == f)
-        inner = list(StratifiedGroupKFold(4, shuffle=True, random_state=0).split(y[a], y[a], patient[a]))
+        inner = list(foldlib.split(4, y[a], patient[a]))
         best = None
         for c in STRENGTHS:
             p = np.zeros(len(a))

@@ -13,10 +13,11 @@ import sys
 
 import numpy as np
 from scipy.stats import binomtest
-from sklearn.model_selection import StratifiedGroupKFold
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "outputs/within_slide"
+sys.path.insert(0, str(ROOT / "tools"))
+import folds as foldlib  # the patient folds, frozen in outputs/folds.json
 UDH, ADH = 2, 4  # index in TYPES = N, PB, UDH, FEA, ADH, DCIS, IC
 RESAMPLES, SEED = 2000, 0
 
@@ -103,7 +104,7 @@ def load():
     val = [r for r in allrows if r["split"] == "val"]
     y = np.array([int(r["label"]) for r in train]); pt = np.array([int(r["patient"]) for r in train])
     fold = np.empty(len(train), object)
-    for i, (_, b) in enumerate(StratifiedGroupKFold(5, shuffle=True, random_state=0).split(y, y, pt)):  # the M1 folds
+    for i, (_, b) in enumerate(foldlib.split(5, y, pt)):  # the M1 folds, from outputs/folds.json
         fold[b] = f"fold{i}"
     prob = np.vstack([np.load(ROOT / "outputs/m2/oof_prob_engine.npy"), np.load(ROOT / "outputs/m2/val_prob_engine.npy")])
     rows = train + val
@@ -579,7 +580,7 @@ def centred():
         z = np.load(cache); oof, vprob = z["oof"], z["val"]
     else:
         oof = np.zeros((len(y), 7))
-        for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=0).split(y, y, pat_tr):
+        for a, b in foldlib.split(5, y, pat_tr):
             oof[b] = classifier(0.001).fit(xtr[a], y[a]).predict_proba(xtr[b])
         vprob = classifier(0.001).fit(xtr, y).predict_proba(xva)
         np.savez(cache, oof=oof, val=vprob)

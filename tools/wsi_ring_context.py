@@ -11,12 +11,12 @@ import sys
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import StratifiedGroupKFold
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
 import grayzone_features as gf
 from train_classifier import ROOT, STRENGTHS, TYPES, classifier, patient_draws, range95
 from wsi_extent import WSI
+import folds as foldlib
 
 OUT = ROOT / "outputs/grayzone"
 RINGS_MM = [0.5, 1.5]
@@ -55,7 +55,7 @@ def out_of_fold(x, y, patient, folds):
     """As grayzone_features.out_of_fold, for data where not all 7 types occur."""
     prob = np.zeros((len(y), 7))
     for a, b in folds:
-        inner = list(StratifiedGroupKFold(4, shuffle=True, random_state=0).split(y[a], y[a], patient[a]))
+        inner = list(foldlib.split(4, y[a], patient[a]))
         best = None
         for cc in STRENGTHS:
             p = np.zeros((len(a), 7))
@@ -72,7 +72,7 @@ def out_of_fold(x, y, patient, folds):
 
 def main():
     inside, rings, y, patient = load()
-    folds = list(StratifiedGroupKFold(5, shuffle=True, random_state=0).split(y, y, patient))
+    folds = list(foldlib.split(5, y, patient))
     sets = {"B inside the region": inside, "B + ring 0.5 mm": np.hstack([inside, rings[0.5]]), "B + ring 1.5 mm": np.hstack([inside, rings[1.5]]),
             "B + both rings": np.hstack([inside, rings[0.5], rings[1.5]]), "ring 0.5 mm alone": rings[0.5], "ring 1.5 mm alone": rings[1.5]}
     draws = patient_draws(patient, np.random.default_rng(0))

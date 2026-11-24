@@ -14,9 +14,9 @@ import pathlib
 import sys
 
 import numpy as np
-from sklearn.model_selection import StratifiedGroupKFold
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
+import folds as foldlib
 import grayzone_adh_kinds as ak
 import short_lists as sl
 from grayzone_slide_origin import SEVERITY, slide_labels
@@ -54,7 +54,7 @@ def fit_predict(kind, xa, ya, pa, ga, inner_prob, xb):
 
 def inner_oof(x, y, patient):
     p = np.zeros((len(y), 7))
-    for a, b in StratifiedGroupKFold(4, shuffle=True, random_state=0).split(y, y, patient):
+    for a, b in foldlib.split(4, y, patient):
         p[b] = classifier(C).fit(x[a], y[a]).predict_proba(x[b])
     return p
 

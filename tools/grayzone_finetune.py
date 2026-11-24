@@ -19,10 +19,10 @@ from torch import nn
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
 import extract_features as ef
+import folds as foldlib
 import grayzone_features as gf
 import short_lists as sl
 from train_classifier import STRENGTHS, classifier, patient_draws, pooled, range95, rows, weighted_f1
-from sklearn.model_selection import StratifiedGroupKFold
 
 SRC = sl.ROOT / "data/bracs/BRACS_RoI/latest_version"
 RANK, ALPHA, FIRST_BLOCK, PER_REGION = 8, 16, 12, 8
@@ -90,7 +90,7 @@ def embed_all(model, head, files, dev, mean, std, log, region=False):
 
 
 def best_c(x, y, patient):
-    inner = list(StratifiedGroupKFold(4, shuffle=True, random_state=0).split(y, y, patient))
+    inner = list(foldlib.split(4, y, patient))
     scores = {}
     for c in STRENGTHS:
         p = np.zeros((len(y), 7))

@@ -12,9 +12,9 @@ import sys
 
 import numpy as np
 from sklearn.metrics import f1_score, roc_auc_score
-from sklearn.model_selection import StratifiedGroupKFold
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
+import folds as foldlib
 import short_lists as sl
 from train_classifier import STRENGTHS, classifier, patient_draws, pooled, range95, rows, weighted_f1
 
@@ -32,7 +32,7 @@ def gray_f1(prob, y, i=slice(None)):
 def out_of_fold(x, y, patient, folds):
     prob, chosen = np.zeros((len(y), 7)), []
     for a, b in folds:
-        inner = list(StratifiedGroupKFold(4, shuffle=True, random_state=0).split(y[a], y[a], patient[a]))
+        inner = list(foldlib.split(4, y[a], patient[a]))
         best = None
         for c in STRENGTHS:
             p = np.zeros((len(a), 7))

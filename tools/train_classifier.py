@@ -18,11 +18,12 @@ import sys
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, f1_score
-from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
+import folds as foldlib  # the patient folds, frozen in outputs/folds.json (tools/folds.py)
 FEATS = ROOT / "data/features"
 OUT = ROOT / "outputs/m1"
 MODELS = {"resnet50": "general", "vit_l_imagenet": "general", "uni": "tissue", "hoptimus0": "tissue"}
@@ -77,7 +78,7 @@ def cv():
     train = rows("train")
     y = np.array([int(r["label"]) for r in train])
     patient = np.array([int(r["patient"]) for r in train])
-    folds = list(StratifiedGroupKFold(5, shuffle=True, random_state=0).split(y, y, patient))
+    folds = list(foldlib.split(5, y, patient))
     assert all(not set(patient[a]) & set(patient[b]) for a, b in folds)  # no patient on both sides of a fold
     result, best_pred = {"grid": {}}, {}
     for model in MODELS:

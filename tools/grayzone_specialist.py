@@ -12,9 +12,9 @@ import sys
 
 import numpy as np
 from sklearn.metrics import f1_score, roc_auc_score
-from sklearn.model_selection import StratifiedGroupKFold
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
+import folds as foldlib
 import short_lists as sl
 from train_classifier import FEATS, classifier, patient_draws, range95, rows
 
@@ -123,7 +123,7 @@ def stack():
     for a, b in folds:
         a, b = pos[a[gray[a]]], pos[b[gray[b]]]
         inner = np.zeros((len(a), 4))  # stage-one scores for the training regions, each from a model that never saw its patient
-        for ia, ib in StratifiedGroupKFold(4, shuffle=True, random_state=0).split(y4[a], y4[a], pg[a]):
+        for ia, ib in foldlib.split(4, y4[a], pg[a]):
             inner[ib] = classifier(0.001).fit(xg[a][ia], y4[a][ia]).predict_proba(xg[a][ib])
         held = classifier(0.001).fit(xg[a], y4[a]).predict_proba(xg[b])
         for name, parts in variants.items():

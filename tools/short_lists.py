@@ -15,8 +15,8 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # -I leaves the script's folder off the path
-from sklearn.model_selection import StratifiedGroupKFold
 
+import folds as foldlib
 from train_classifier import ROOT, TYPES, classifier, patient_draws, pooled, range95, rows
 
 OUT = ROOT / "outputs/m2"
@@ -215,7 +215,7 @@ def load():
     train, held = rows("train"), rows("val")
     y = np.array([int(r["label"]) for r in train])
     patient = np.array([int(r["patient"]) for r in train])
-    folds = list(StratifiedGroupKFold(5, shuffle=True, random_state=0).split(y, y, patient))  # the same folds as M1
+    folds = list(foldlib.split(5, y, patient))  # the same folds as M1, from outputs/folds.json
     oof_cache, val_cache = OUT / "oof_prob_engine.npy", OUT / "val_prob_engine.npy"
     if not (oof_cache.exists() and val_cache.exists()):
         x = engine_features("train")

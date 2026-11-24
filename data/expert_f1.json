@@ -1,0 +1,9 @@
+{
+  "source": "Pati et al., HACT-Net, Medical Image Analysis 2021 / arXiv 2102.11057, table VIII",
+  "measure": "ADH F1 reproduced by breast pathologists re-reading BRACS (a different BRACS release than the cohort used here)",
+  "per_pathologist_adth_f1": [36.00, 35.37, 42.29],
+  "mean": 37.89,
+  "sd": 3.12,
+  "used_in_readme_as": "0.38",
+  "note": "No artifact of our own produces this number; it is other people's measurement, stored here so the README's only external comparator is traceable."
+}
